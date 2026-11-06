@@ -44,13 +44,14 @@ article h2{font-size:22px;margin:.1em 0 .5em}article p{margin:.7em 0}
 //CORE
 const norm=s=>s.replace(/[İıI]/g,'i').toLowerCase(),esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const OK={'geçici':'gecici','ek':'ek','mükerrer':'mukerrer'},AL='A-Za-zçğıöşüÇĞİÖŞÜ';
-const head=l=>{const n=norm(l.replace(/^[\s#*]+/,'')),m=n.match(/^((?:(?:geçici|ek|mükerrer)\s+)*)madde[\s:\-–—]*(\d+(?:\/[a-zçğıöşü]+)?)/);
- if(!m||!/^\s*(?:[-–—:.*]|$)/.test(n.slice(m[0].length)))return null;
+const head=(l,g)=>{const n=norm(l.replace(/^[\s#*]+/,'')),m=n.match(/^((?:(?:geçici|ek|mükerrer)\s+)*)madde[\s:\-–—]*(\d+(?:\/[a-zçğıöşü]+)?)/);
+ if(!m||(!g&&!/^\s*(?:[-–—:.*]|$)/.test(n.slice(m[0].length))))return null;
  return m[1].trim().split(/\s+/).filter(Boolean).map(x=>OK[x]).join('')+m[2]};
 const son=l=>/^\[\^?\d+\]:/.test(l.trim())||/^(?:\d+\s+sayili\s+kanuna\s+(?:ek|işlenemeyen)|işlenemeyen\s+hükümler|kanuna\s+ek\s+ve\s+değişiklik|ek\s+ve\s+değişiklik\s+getiren|yürürlüğe\s+giriş\s+tarih)/.test(norm(l.replace(/^[\s#*]+/,'')));
-const TL=l=>{l=l.replace(/\*\*/g,'').replace(/(?:\s*\[\^?\d+\])+$/,'').trim();return!!l&&l.length<=140&&!/[.;:!?]$/.test(l)&&!/^\((?:Ek|Değişik|Mülga|İptal|Yeniden|Başlığı)/.test(l)&&!/^\(?\d+\)/.test(l)&&!new RegExp('^['+AL+']\\)').test(l)&&!/^\[\^?\d+\]:/.test(l)&&!/^(?:Kanun\s+Numaras|Kabul\s+Tarihi|Yayımland|Tertip|Dayandığı)/i.test(l)};
+const TL=l=>{l=l.replace(/\*\*/g,'').replace(/(?:\s*\[\^?\d+\])+$/,'').trim();return!!l&&l.length<=140&&!/[.;:!?]$/.test(l)&&!/^\((?:Ek|Değişik|Mülga|İptal|Yeniden|Başlığı)/.test(l)&&!/^\(?\d+\)/.test(l)&&!/^\[\^?\d+\]:/.test(l)&&!/^(?:Kanun\s+Numaras|Kabul\s+Tarihi|Yayımland|Tertip|Dayandığı)/i.test(l)};
 const clean=l=>l.replace(/\*\*/g,'').replace(/^#+\s*/,'').replace(/\\([^\w\s])/g,'$1').replace(/\s*\[\^?\d+\]/g,'').trim();
-function tail(lines){const h=[];while(lines.length){const l=lines[lines.length-1].trim();if(!l){lines.pop();continue}if(TL(l)){h.unshift(clean(l));lines.pop()}else break}return h}
+function tail(lines){const r=[];while(lines.length){const l=lines[lines.length-1].trim();if(!l){lines.pop();continue}if(TL(l)){r.unshift(l);lines.pop()}else break}
+ const h=[];h.r=[];for(const l of r){(l.match(/\[\^?\d+\]/g)||[]).forEach(x=>h.r.push(x));const c=clean(l);if(h.length&&/^[a-zçğıöşü]/.test(c)&&!/^[a-zçğıöşü]\)/.test(c))h[h.length-1]+=' '+c;else h.push(c)}return h}
 const UN=/^(?:\S+\s+){0,3}(?:kitap|kisim|bap|bab|bölüm|fasil|ayirim)\b/;
 function prep(md){
  md=md.replace(/\r/g,'').replace(/\\\[(\d+)\\\]/g,'[$1]').replace(/\\[ \t]*\n/g,'\n')
@@ -64,7 +65,7 @@ function parse(md){md=prep(md);
  for(let i=0;i<end;i++){const l=L[i],k=head(l);
   if(k){const h=c?tail(c.lines):(()=>{const b=L.slice(Math.max(0,i-8),i);return tail(b)})();
    let t='',sec=h;if(h.length&&!UN.test(norm(h[h.length-1]))&&!/^[IVXLCDM]+\s*[-–—.]/.test(h[h.length-1])){t=h[h.length-1];sec=h.slice(0,-1)}
-   c={k,title:t,sec:mergeSec(sec),lines:[],hr:l};arts.push(c);
+   c={k,title:t,sec:mergeSec(sec),lines:[],hr:l+' '+(h.r||[]).join(' ')};arts.push(c);
    const rest=l.replace(/^[\s#*]+/,'').replace(new RegExp('^(?:['+AL+']+\\s+)*[Mm][Aa][Dd][Dd][Ee][\\s:\\-–—*]*\\d+(?:\\/['+AL+']+)?[\\s*]*(?:[-–—:.][\\s*]*)*'),'');
    if(rest.trim())c.lines.push(rest)}
   else if(c)c.lines.push(l)}
@@ -72,7 +73,7 @@ function parse(md){md=prep(md);
  const idx={};arts.forEach((a,i)=>idx[a.k]=i);return{arts,fn,idx}}
 const NEW=new RegExp('^(\\(\\d+\\)|\\((?:Değişik|Ek|Mülga)[^)]*\\)|['+AL+'0-9]+\\)\\s|\\d+\\s*[-–—]\\s|[IVXLCDM]+\\.\\s|[-*]\\s)');
 function paras(lines){const o=[];let b='';for(let l of lines){l=l.replace(/\*\*/g,'').replace(/^#+\s*/,'').replace(/\\([^\w\s])/g,'$1').trim();
- if(!l){if(b)o.push(b);b='';continue}if(NEW.test(l)){if(b)o.push(b);b=l}else b=b?b+' '+l:l}if(b)o.push(b);return o}
+ if(/^[-–—]+$/.test(l))continue;const lone=/^(?:\(\d+\)|[A-Za-zçğıöşüÇĞİÖŞÜ]\))$/.test(b);if(!l){if(b&&!lone){o.push(b);b=''}continue}if(NEW.test(l)&&!lone){if(b)o.push(b);b=l}else b=b?b+' '+l:l}if(b)o.push(b);return o}
 const W={g:'hak[a-zçğıöşü]*|özgürlük[a-zçğıöşü]*|eşitlik[a-zçğıöşü]*|adalet|kamu yarar[a-zçğıöşü]*|adil yargılanma|savunma hakk[a-zçğıöşü]*|masumiyet karines[a-zçğıöşü]*|beraat|tahliye|lehe kanun|yargılamanın yenilenmes[a-zçğıöşü]*|yürürlük|kesinleşm[a-zçğıöşü]*|derhal|zorunlu[a-zçğıöşü]*|yükümlü[a-zçğıöşü]*|indirim[a-zçğıöşü]*|indirilir|meşru savunma|meşru müdafaa|zorunluluk hal[a-zçğıöşü]*',
 r:'ceza[a-zçğıöşü]*|yaptırım[a-zçğıöşü]*|iptal[a-zçğıöşü]*|fesih|geçersiz[a-zçğıöşü]*|batıl|hükümsüz[a-zçğıöşü]*|yok hükmündedir|suç[a-zçğıöşü]*|müsadere|güvenlik tedbir[a-zçğıöşü]*|hapis|müebbet|yakalama|gözalt[a-zçğıöşü]*|tutukla[a-zçğıöşü]*|adli kontrol|redd[a-zçğıöşü]*|düş[a-zçğıöşü]*|haciz[a-zçğıöşü]*|iflas[a-zçğıöşü]*|konkordato|görevsiz[a-zçğıöşü]*|yetkisiz[a-zçğıöşü]*',
 y:'iyi ?niyet[a-zçğıöşü]*|kötü ?niyet[a-zçğıöşü]*|dürüstlük kural[a-zçğıöşü]*|hakkaniyet|kusur[a-zçğıöşü]*|illiyet bağ[a-zçğıöşü]*|ispat[a-zçğıöşü]*|karine[a-zçğıöşü]*|zamanaşım[a-zçğıöşü]*|hak düşürücü[a-zçğıöşü]*|takdir[a-zçğıöşü]*|makul süre|özen[a-zçğıöşü]*|basiretli tacir|muvazaa[a-zçğıöşü]*|gabin|ikrah|kötüye kullan[a-zçğıöşü]*|ölçülülük|orantılı[a-zçğıöşü]*|açıkça',
@@ -104,9 +105,9 @@ function fnParse(L,end){const cl=s=>s.replace(/\*\*/g,'').replace(/\\([().\[\]])
  return{...pa,...br}}
 function eski(md,key){const out=[];let bol='',hd=false,buf=[];const fl=()=>{if(hd&&buf.length)out.push([bol,buf.join(' ')]);buf=[]};
  for(let l of md.replace(/\r/g,'').split('\n')){l=l.replace(/\*\*/g,'').trim();if(/^\d+(-\d+)?$/.test(l))continue;
-  if(/^\d+\s*[-–—.]\s*[\d\/]+.*(?:sayılı\s+Kanun|Kararı\s+ile)/i.test(l)){fl();hd=false;bol=l;continue}
+  if(/^\d+\s*[-–—.]\s*[\d\/]+.*(?:sayılı|Kararı)/i.test(l)){fl();hd=false;bol=l;continue}
   if(/^(?:[-_–—]{5,}|\d{4}\s+SAYILI\s+KANUNA\s+EK)/i.test(l)){fl();hd=false;continue}
-  const k=head(l);if(k){fl();hd=k==key;if(hd)buf.push(l);continue}if(hd&&l)buf.push(l)}
+  const k=head(l,true);if(k){fl();hd=k==key;if(hd)buf.push(l);continue}if(hd&&l)buf.push(l)}
  fl();return out}
 //ENDCORE
 const TT={};function col(o){if(Array.isArray(o))return o.forEach(col);if(o&&typeof o=='object'){if(typeof o.title=='string'&&(o.slug||o.law_number)){if(o.slug)TT[o.slug]=o.title}else for(const[k,x]of Object.entries(o)){if(x&&typeof x=='object'&&typeof x.title=='string'&&!x.slug)TT[k]=x.title;else col(x)}}}
@@ -160,6 +161,7 @@ document.addEventListener('selectionchange',()=>{sb.hidden=!(view=='a'&&getSelec
 function ayar(){view='s';title('Ayarlar');const c=cfg();
  v.innerHTML=`<div class=it><b>Açık Mevzuat deposu</b><small>PC’de: git -C &lt;klasör&gt; remote get-url origin</small><br><input id=rp placeholder="kullanici/depo" value="${esc(c.repo)}"><input id=br placeholder="dal (main)" value="${esc(c.br)}"><button class=p id=up>Güncelle</button><p id=lg class=n></p></div>
  <div class=it><b>Dosyadan içe aktar</b><small>CBK, KHK gibi .md dosyaları (örn. cbk.md)</small><br><input id=fl type=file accept=".md,.txt" multiple></div>`;
+ allM().then(m=>{const a=m.filter(x=>x.mulga).length;$('#lg').textContent=`Kayıtlı: ${m.length-a} kanun · ${a} arşiv dosyası`});
  $('#fl').onchange=async e=>{for(const f of e.target.files)await save('yerel-'+f.name.replace(/\.\w+$/,''),await f.text(),'yerel');toast('İçe aktarıldı')};
  $('#up').onclick=async()=>{localStorage.repo=$('#rp').value.trim();localStorage.br=$('#br').value.trim()||'main';const lg=t=>$('#lg').textContent=t,{repo,br}=cfg();
   if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return lg('Depo adı “kullanici/depo” biçiminde olmalı');lg('Liste alınıyor…');
