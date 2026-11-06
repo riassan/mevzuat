@@ -15,6 +15,7 @@ main{padding:12px 14px 96px;max-width:760px;margin:auto}
 input{width:100%;font:inherit;padding:12px 14px;margin:0 0 8px;border-radius:12px;border:1px solid var(--ln);background:var(--card);color:var(--ink)}
 .it{display:block;padding:12px 14px;margin:8px 0;background:var(--card);border:1px solid var(--ln);border-radius:12px;color:inherit;text-decoration:none}
 [hidden]{display:none!important}
+.rw{display:flex;gap:8px;margin-bottom:8px}.rw input{margin:0;flex:1}a.x{color:var(--ac);font-weight:700;text-decoration:underline dotted;text-underline-offset:4px;cursor:pointer}
 .mi{display:flex;gap:12px;align-items:baseline}.mi .no{min-width:5.6em;flex:none}.mi>span:last-child{flex:1}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fv{display:block;padding:10px 12px;background:var(--card);border:1px solid var(--ln);border-radius:12px;color:inherit;text-decoration:none;font-size:13px;line-height:1.3}.fv b{display:block;color:var(--ac);font-size:17px;margin-bottom:2px}
 details.fn summary{cursor:pointer;color:var(--ink)}
@@ -37,7 +38,7 @@ article h2{font-size:22px;margin:.1em 0 .5em}article p{margin:.7em 0}
 #sh{position:fixed;left:0;right:0;bottom:0;max-height:55vh;overflow:auto;background:var(--card);padding:16px 16px 28px;border-top:2px solid var(--ac);z-index:10}
 #ts{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;opacity:0;transition:.3s;pointer-events:none;z-index:20}
 </style></head><body>
-<header><button id=bk>‹</button><h1 id=ttl>Mevzuat</h1><button id=st>⚙</button></header>
+<header><button id=bk>‹</button><h1 id=ttl>Mevzuat</h1><button id=hm>⌂</button><button id=st>⚙</button></header>
 <main id=v></main><nav id=nv hidden></nav><div id=sb hidden></div><div id=sh hidden></div><div id=ts></div>
 <script>
 //CORE
@@ -84,8 +85,10 @@ function paint(s,q,uh){const n=norm(s);if(n.length!=s.length)return esc(s);const
  if(q){const x=norm(q);for(let i=n.indexOf(x);i>=0;i=n.indexOf(x,i+x.length))mk(i,i+x.length,'q')}
  KW.forEach(([re,cl])=>{re.lastIndex=0;let m;while((m=re.exec(n))){if(!m[0].length){re.lastIndex++;continue}mk(m.index,m.index+m[0].length,cl)}});
  let h='',i=0;while(i<s.length){let j=i+1;while(j<s.length&&c[j]==c[i])j++;const p=esc(s.slice(i,j));h+=c[i]?`<span class=${c[i]}>${p}</span>`:p;i=j}return h}
-function ph(p,q,uh){let h='';p.split(/(\((?:Ek|Değişik|Mülga|İptal|Yeniden|Başlığı)[^)]*\)|\[\^?\d+\])/).forEach((s,i)=>{
- h+=i%2?(s[0]=='['?`<sup data-f="${s.replace(/\D/g,'')}">${s.replace(/\D/g,'')}</sup>`:`<i class=n>${esc(s)}</i>`):paint(s,q,uh)});
+const NM='\\d+(?:\\/[a-zçğıöşü]+)?',XR=new RegExp('(?<=\\bmadde\\s+)('+NM+')|\\b('+NM+')(?=(?:\\s*(?:,|ve|ila|ile|veya)\\s*'+NM+')*(?:\\.|\\s*(?:inci|ıncı|nci|üncü|uncu))?\\s*madde)','gi');
+function lk(s,q,uh,has){if(!has)return paint(s,q,uh);let o='',i=0,m;XR.lastIndex=0;while((m=XR.exec(s))){const n=m[1]||m[2],k=anahtar(n);if(k&&has(k)){o+=paint(s.slice(i,m.index),q,uh)+`<a class=x data-k="${k}">${esc(n)}</a>`;i=m.index+n.length}}return o+paint(s.slice(i),q,uh)}
+function ph(p,q,uh,has){let h='';p.split(/(\((?:Ek|Değişik|Mülga|İptal|Yeniden|Başlığı)[^)]*\)|\[\^?\d+\])/).forEach((s,i)=>{
+ h+=i%2?(s[0]=='['?`<sup data-f="${s.replace(/\D/g,'')}">${s.replace(/\D/g,'')}</sup>`:`<i class=n>${esc(s)}</i>`):lk(s,q,uh,has)});
  return'<p>'+h.replace(/^(\(\d+\))/,'<b class=f>$1</b>').replace(new RegExp('^(['+AL+']\\))'),'<b class=b>$1</b>')+'</p>'}
 const etiket=k=>{const m=k.match(/^((?:gecici|ek|mukerrer)*)(.*)$/),on=m[1].replace(/gecici/g,'Geçici ').replace(/ek/g,'Ek ').replace(/mukerrer/g,'Mükerrer ');return on+'Madde '+m[2].toUpperCase()};
 const anahtar=t=>{t=norm(t).replace(/\s/g,'').replace(/geci̇ci/g,'geçici');let m=t.match(/^(ek|e|geçici|gecici|g|mükerrer|mukerrer)[./:-]?(\d+(?:\/[a-zçğıöşü]+)?)$/);
@@ -134,21 +137,21 @@ async function home(){view='h';title('Mevzuat');const m=(await allM()).filter(x=
   fv=t?[]:favs().map(n=>m.find(x=>parseInt(x.k)==n)).filter(Boolean);
   $('#ls').innerHTML=(fv.length?'<div class=sec>Sık kullanılanlar</div><div class=fg>'+fv.map(x=>`<a class=fv href="${L(x.k)}"><b>${ab(parseInt(x.k))}</b>${esc(x.title)}</a>`).join('')+'</div><div class=sec>Tüm kanunlar</div>':'')+r.slice(0,150).map(x=>`<a class="it mi" href="${L(x.k)}"><span class=no>${parseInt(x.k)||''}</span><span>${esc(x.title)}</span></a>`).join('')+(r.length>150?'<small>… daraltmak için yaz</small>':'')};
  $('#fq').oninput=draw;draw()}
-function law(c,q){view='l';title(c.t);v.innerHTML=`<button id=fv style="margin:0 0 8px"></button><input id=gm placeholder="Maddeye git: 36, 38/a, ek1, g2 ↵"><input id=ks type=search placeholder="Bu kanunda ara ↵" value="${esc(q)}"><div id=rs></div>`;
- favBtn(c);$('#gm').onkeydown=e=>{if(e.key=='Enter'){const k=anahtar($('#gm').value);k&&c.idx[k]!=null?location.hash=L(c.f,k):toast('Madde bulunamadı')}};
- $('#ks').onkeydown=e=>{if(e.key=='Enter')location.hash=L(c.f,'',$('#ks').value.trim())};
+function law(c,q){view='l';title(c.t);v.innerHTML=`<button id=fv style="margin:0 0 8px"></button><form id=gf class=rw><input id=gm placeholder="Maddeye git: 36, 38/a, ek1, g2" enterkeyhint=go autocomplete=off><button class=p>Git</button></form><form id=kf class=rw><input id=ks type=search placeholder="Bu kanunda ara" enterkeyhint=search value="${esc(q)}"><button class=p>Ara</button></form><div id=rs></div>`;
+ favBtn(c);$('#gf').onsubmit=e=>{e.preventDefault();const k=anahtar($('#gm').value.replace(/madde/i,''));k&&c.idx[k]!=null?location.hash=L(c.f,k):toast('Madde bulunamadı')};
+ $('#kf').onsubmit=e=>{e.preventDefault();location.hash=L(c.f,'',$('#ks').value.trim())};
  let h='';if(q){const r=c.arts.map(a=>[a,aramaSonuc(a,q)]).filter(x=>x[1].length||norm(x[0].title).includes(norm(q)));h=`<div class=sec>${r.length} maddede bulundu</div>`+r.map(([a,s])=>`<a class="it mi" href="${L(c.f,a.k,q)}"><span class=no>${etiket(a.k)}</span><span>${esc(a.title)}${s.slice(0,3).map(x=>`<small>${paint(x,q,[])}</small>`).join('')}</span></a>`).join('')}
  else c.arts.forEach(a=>{a.sec.forEach(s=>h+=`<div class=sec>${esc(s)}</div>`);h+=`<a class="it mi" href="${L(c.f,a.k)}"><span class=no>${etiket(a.k)}</span><span>${esc(a.title)}</span></a>`});
  $('#rs').innerHTML=h||'<small>Madde bulunamadı</small>'}
 function art(c,k,q){view='a';curK=k;const a=c.arts[c.idx[k]];if(!a)return law(c,q);title(c.t.split(' ').slice(0,4).join(' ')+' · '+etiket(k));
  const uh=hl[c.f+'|'+k]||[],ps=paras(a.lines),refs=[...new Set(((a.lines.join('\n')+a.hr).match(/\[\^?(\d+)\]/g)||[]).map(x=>x.replace(/\D/g,'')))].filter(n=>c.fn[n]);
- v.innerHTML=`<article><div class=sec>${esc(a.sec.join(' · '))}</div><h2>${etiket(k)}${a.title?' – '+esc(a.title):''}</h2>${ps.map(p=>ph(p,q,uh)).join('')}</article>`+(refs.length?'<div class=fn>'+refs.map(n=>`<p><b>[${n}]</b> ${esc(c.fn[n])}</p>`).join('')+'</div>':'')+eskiHtml(c,k);
+ v.innerHTML=`<article><div class=sec>${esc(a.sec.join(' · '))}</div><h2>${etiket(k)}${a.title?' – '+esc(a.title):''}</h2>${ps.map(p=>ph(p,q,uh,k=>c.idx[k]!=null)).join('')}</article>`+(refs.length?'<div class=fn>'+refs.map(n=>`<p><b>[${n}]</b> ${esc(c.fn[n])}</p>`).join('')+'</div>':'')+eskiHtml(c,k);
  const ks=q?c.arts.filter(x=>norm(paras(x.lines).join(' ')+x.title).includes(norm(q))).map(x=>x.k):c.arts.map(x=>x.k),i=ks.indexOf(k),go=d=>{const n=ks[i+d];n?location.hash=L(c.f,n,q):toast('Son madde')};
  nv.hidden=false;nv.innerHTML='<button id=pv>‹</button><button id=ix>☰</button><button id=cp>⧉</button><button id=nx>›</button>';
  $('#pv').onclick=()=>go(-1);$('#nx').onclick=()=>go(1);$('#ix').onclick=()=>location.hash=L(c.f,'',q);
  $('#cp').onclick=()=>navigator.clipboard.writeText(etiket(k)+'\n'+ps.join('\n')).then(()=>toast('Kopyalandı'));
  let x0;v.ontouchstart=e=>x0=e.touches[0].clientX;v.ontouchend=e=>{const d=e.changedTouches[0].clientX-x0;if(Math.abs(d)>90&&!getSelection().toString())go(d<0?1:-1)};
- v.onclick=e=>{const f=e.target.dataset&&e.target.dataset.f;if(f&&c.fn[f]){sh.innerHTML=`<b>[${f}]</b> ${esc(c.fn[f])}`;sh.hidden=false}else sh.hidden=true}}
+ v.onclick=e=>{const x=e.target.closest('[data-k]');if(x){location.hash=L(c.f,x.dataset.k);return}const f=e.target.dataset&&e.target.dataset.f;if(f&&c.fn[f]){sh.innerHTML=`<b>[${f}]</b> ${esc(c.fn[f])}`;sh.hidden=false}else sh.hidden=true}}
 sb.innerHTML=[['r','#ff7b6b'],['g','#5fd49a'],['y','#f2c94c'],['m','#c79bf0'],['t','#4fd1d1'],['0','']].map(([c,b])=>`<button data-c=${c} style="background:${b||'var(--card)'}">${c=='0'?'✕':''}</button>`).join('');
 sb.onpointerdown=e=>{const b=e.target.closest('button');if(!b)return;e.preventDefault();const key=cur.f+'|'+curK;let a=hl[key]||[];
  getSelection().toString().split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(x=>x.length>2).forEach(x=>{a=a.filter(y=>!norm(y[0]).includes(norm(x))&&!norm(x).includes(norm(y[0])));if(b.dataset.c!='0')a.push([x,b.dataset.c])});
@@ -166,6 +169,6 @@ function ayar(){view='s';title('Ayarlar');const c=cfg();
    const todo=j.tree.filter(x=>x.type=='blob'&&/^kanunlar\/[^/]+\/metin\.md$/.test(x.path)).map(x=>({k:x.path.split('/')[1],sha:x.sha,p:x.path})).filter((x,_,a)=>have[x.k]!=x.sha&&(!MU.test(x.k)||a.some(y=>!MU.test(y.k)&&parseInt(y.k)==parseInt(x.k))));
    let d=0,e=0;const q=[...todo];await Promise.all(Array.from({length:6},async()=>{for(let x;x=q.shift();){try{const t=await fetch(`https://raw.githubusercontent.com/${repo}/${br}/${x.p.split('/').map(encodeURIComponent).join('/')}`);if(!t.ok)throw 0;await save(x.k,await t.text(),x.sha)}catch{e++}lg(`İndiriliyor ${++d}/${todo.length}`)}}));
    cur={};lg(todo.length?`Bitti: ${d-e} güncellendi${e?', '+e+' hata (tekrar bas)':''}${j.truncated?' · liste kesilmiş olabilir':''}`:'Her şey güncel ✓')}catch(x){lg('Bağlantı hatası')}}}
-$('#bk').onclick=()=>history.length>1&&view!='h'?history.back():(location.hash='');$('#st').onclick=()=>location.hash='#/ayar';
+$('#bk').onclick=()=>history.length>1&&view!='h'?history.back():(location.hash='');$('#st').onclick=()=>location.hash='#/ayar';$('#hm').onclick=()=>location.hash='#/';
 addEventListener('hashchange',route);route();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
 </script></body></html>
