@@ -14,6 +14,10 @@ button.p{background:var(--ac);color:var(--bg);border:0;font-weight:700}
 main{padding:12px 14px 96px;max-width:760px;margin:auto}
 input{width:100%;font:inherit;padding:12px 14px;margin:0 0 8px;border-radius:12px;border:1px solid var(--ln);background:var(--card);color:var(--ink)}
 .it{display:block;padding:12px 14px;margin:8px 0;background:var(--card);border:1px solid var(--ln);border-radius:12px;color:inherit;text-decoration:none}
+[hidden]{display:none!important}
+.mi{display:flex;gap:12px;align-items:baseline}.mi .no{min-width:5.6em;flex:none}.mi>span:last-child{flex:1}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fv{display:block;padding:10px 12px;background:var(--card);border:1px solid var(--ln);border-radius:12px;color:inherit;text-decoration:none;font-size:13px;line-height:1.3}.fv b{display:block;color:var(--ac);font-size:17px;margin-bottom:2px}
+details.fn summary{cursor:pointer;color:var(--ink)}
 .it small{color:var(--mut);display:block;margin-top:2px}
 .no{display:inline-block;min-width:3.4em;color:var(--ac);font-weight:700}
 .sec{margin:20px 0 6px;color:var(--ac);font:700 12px Georgia,serif;letter-spacing:.06em;text-transform:uppercase}
@@ -47,17 +51,19 @@ const TL=l=>{l=l.replace(/\*\*/g,'').replace(/(?:\s*\[\^?\d+\])+$/,'').trim();re
 const clean=l=>l.replace(/\*\*/g,'').replace(/^#+\s*/,'').replace(/\\([^\w\s])/g,'$1').replace(/\s*\[\^?\d+\]/g,'').trim();
 function tail(lines){const h=[];while(lines.length){const l=lines[lines.length-1].trim();if(!l){lines.pop();continue}if(TL(l)){h.unshift(clean(l));lines.pop()}else break}return h}
 const UN=/^(?:\S+\s+){0,3}(?:kitap|kisim|bap|bab|bölüm|fasil|ayirim)\b/;
-function parse(md){
+function prep(md){
  md=md.replace(/\r/g,'').replace(/\\\[(\d+)\\\]/g,'[$1]').replace(/\\[ \t]*\n/g,'\n')
   .replace(new RegExp('(^[ \\t]*(?:#+[ \\t]*)?\\**(?:['+AL+']+[ \\t]+)*madde\\**)(?:[ \\t]*\\n)+[ \\t]*\\**(\\d+(?:\\/['+AL+']+)?[ \\t]*[-–—:.*])','gmi'),'$1 $2');
+ return md}
+function parse(md){md=prep(md);
  const L=md.split('\n'),fn={},arts=[];let end=L.length;
  for(let i=0;i<L.length;i++)if(son(L[i])){end=i;break}
- for(const l of L.slice(end)){const m=l.match(/^\[\^?(\d+)\]:\s*(.+)/);if(m)fn[m[1]]=m[2].replace(/\*\*/g,'')}
+ Object.assign(fn,fnParse(L,end));
  let c=null;
  for(let i=0;i<end;i++){const l=L[i],k=head(l);
   if(k){const h=c?tail(c.lines):(()=>{const b=L.slice(Math.max(0,i-8),i);return tail(b)})();
    let t='',sec=h;if(h.length&&!UN.test(norm(h[h.length-1]))&&!/^[IVXLCDM]+\s*[-–—.]/.test(h[h.length-1])){t=h[h.length-1];sec=h.slice(0,-1)}
-   c={k,title:t,sec,lines:[]};arts.push(c);
+   c={k,title:t,sec:mergeSec(sec),lines:[],hr:l};arts.push(c);
    const rest=l.replace(/^[\s#*]+/,'').replace(new RegExp('^(?:['+AL+']+\\s+)*[Mm][Aa][Dd][Dd][Ee][\\s:\\-–—*]*\\d+(?:\\/['+AL+']+)?[\\s*]*(?:[-–—:.][\\s*]*)*'),'');
    if(rest.trim())c.lines.push(rest)}
   else if(c)c.lines.push(l)}
@@ -85,7 +91,23 @@ const etiket=k=>{const m=k.match(/^((?:gecici|ek|mukerrer)*)(.*)$/),on=m[1].repl
 const anahtar=t=>{t=norm(t).replace(/\s/g,'').replace(/geci̇ci/g,'geçici');let m=t.match(/^(ek|e|geçici|gecici|g|mükerrer|mukerrer)[./:-]?(\d+(?:\/[a-zçğıöşü]+)?)$/);
  if(m)return({e:'ek',ek:'ek',g:'gecici','geçici':'gecici',gecici:'gecici'}[m[1]]||'mukerrer')+m[2];return/^\d+(\/[a-zçğıöşü]+)?$/.test(t)?t:null};
 function aramaSonuc(a,q){const x=norm(q),o=[];for(const p of paras(a.lines))for(const s of p.split(/(?<=[.;:])\s+/))if(norm(s).includes(x))o.push(s.length>230?'… '+s.slice(Math.max(0,norm(s).indexOf(x)-90),norm(s).indexOf(x)+130)+' …':s);return o}
+const MU=/yururlukten-kaldirilmis|mulga/;
+const UE=x=>/(?:kitap|kisim|bap|bab|bölüm|fasil|ayirim)$/.test(norm(x).replace(/[\s:.\-–—]+$/,''));
+function mergeSec(s){const g=[];let c=[];for(const p of s){if(UE(p)){if(p.trim().split(/\s+/).length==1&&c.length){const pv=c.pop();if(c.length)g.push(c.join(' '));g.push(pv+' '+p)}else{if(c.length)g.push(c.join(' '));g.push(p)}c=[]}else c.push(p)}if(c.length)g.push(c.join(' '));
+ const o=[];for(const x of g){const l=o[o.length-1];if(!UE(x)&&l&&UE(l))o[o.length-1]=l+' — '+x;else o.push(x)}return o}
+function fnParse(L,end){const cl=s=>s.replace(/\*\*/g,'').replace(/\\([().\[\]])/g,'$1'),cut=cl(L.slice(0,end).join('\n')).length,t=cl(L.join('\n')),br={},pa={};
+ const re=/^[ \t]*(?:\[\^?(\d+)\]|\((\d+)\)):?[ \t]*(?:\r?\n[ \t]*)*([^\r\n]+(?:\r?\n(?![ \t]*(?:\[\^?\d+\]|\(\d+\)|(?:#+[ \t]*)?(?:Geçici\s+|Ek\s+|Mükerrer\s+)?Madde\s+\d+|KANUNA EK VE DEĞİŞİKLİK|\d{4}\s+SAYILI\s+KANUNA|EK VE DEĞİŞİKLİK|YÜRÜRLÜĞE GİRİŞ|[-_–—]{5,}|\+---|\|))[^\r\n]+)*)/gmi;
+ let m;while((m=re.exec(t))){const b=m[3].replace(/\s+/g,' ').trim();if(b.length>5&&!/^(?:#+\s*)?(?:(?:Geçici|Ek|Mükerrer)\s+)?Madde\s+\d+/i.test(b)){if(m[1])br[m[1]]=b;else if(m.index>=cut)pa[m[2]]=b}}
+ return{...pa,...br}}
+function eski(md,key){const out=[];let bol='',hd=false,buf=[];const fl=()=>{if(hd&&buf.length)out.push([bol,buf.join(' ')]);buf=[]};
+ for(let l of md.replace(/\r/g,'').split('\n')){l=l.replace(/\*\*/g,'').trim();if(/^\d+(-\d+)?$/.test(l))continue;
+  if(/^\d+\s*[-–—.]\s*[\d\/]+.*(?:sayılı\s+Kanun|Kararı\s+ile)/i.test(l)){fl();hd=false;bol=l;continue}
+  if(/^(?:[-_–—]{5,}|\d{4}\s+SAYILI\s+KANUNA\s+EK)/i.test(l)){fl();hd=false;continue}
+  const k=head(l);if(k){fl();hd=k==key;if(hd)buf.push(l);continue}if(hd&&l)buf.push(l)}
+ fl();return out}
 //ENDCORE
+const TT={};function col(o){if(Array.isArray(o))return o.forEach(col);if(o&&typeof o=='object'){if(typeof o.title=='string'&&(o.slug||o.law_number)){if(o.slug)TT[o.slug]=o.title}else for(const[k,x]of Object.entries(o)){if(x&&typeof x=='object'&&typeof x.title=='string'&&!x.slug)TT[k]=x.title;else col(x)}}}
+const FD=[5237,5271,4721,6098,6100,6102,2004,2709,2577,4857,6698,6502],favs=()=>JSON.parse(localStorage.fav||'null')||FD;
 const $=s=>document.querySelector(s),v=$('#v'),nv=$('#nv'),sb=$('#sb'),sh=$('#sh');
 const AB={tck:5237,cmk:5271,tmk:4721,tbk:6098,ttk:6102,hmk:6100,iik:2004,ay:2709,iyuk:2577,imk:2576,iş:4857,kvkk:6698,tkhk:6502,ktk:2918,dmk:657,sgk:5510,teb:7201,av:1136,aym:6216};
 const cfg=()=>({repo:localStorage.repo||'onurcan-b/acik-mevzuat',br:localStorage.br||'main'});let hl=JSON.parse(localStorage.hl||'{}'),cur={},view='',curK='';
@@ -93,29 +115,34 @@ const toast=t=>{const e=$('#ts');e.textContent=t;e.style.opacity=1;setTimeout(()
 const db=new Promise((ok,no)=>{const r=indexedDB.open('mevzuat',1);r.onupgradeneeded=()=>{r.result.createObjectStore('f',{keyPath:'k'});r.result.createObjectStore('m',{keyPath:'k'})};r.onsuccess=()=>ok(r.result);r.onerror=no});
 const tx=async(n,md,fn)=>{const d=await db;return new Promise((ok,no)=>{const t=d.transaction(n,md),q=fn(...[].concat(n).map(x=>t.objectStore(x)));t.oncomplete=()=>ok(q&&q.result);t.onerror=no})};
 const getF=k=>tx('f','readonly',s=>s.get(k)),allM=()=>tx('m','readonly',s=>s.getAll());
-const save=(k,md,sha)=>tx(['f','m'],'readwrite',(f,m)=>{f.put({k,md});m.put({k,sha,title:baslik(md,k)})});
+const save=(k,md,sha)=>tx(['f','m'],'readwrite',(f,m)=>{f.put({k,md});m.put({k,sha,title:TT[k]||baslik(md,k),mulga:MU.test(k)})});
 function baslik(md,k){for(const l of md.split('\n').slice(0,25)){const t=clean(l);if(/(KANUN|KARARNAME|ANAYASA|TÜZÜK|YÖNETMELİK)/.test(t)&&t===t.toLocaleUpperCase('tr')&&t.length>8&&t.length<200)return t}
  return k.replace(/^\d+-/,'').replace(/-/g,' ').toLocaleUpperCase('tr')}
 const L=(f,k,q)=>'#/l/'+encodeURIComponent(f)+(k?'/'+encodeURIComponent(k):'')+(q?'?q='+encodeURIComponent(q):'');
 const title=t=>$('#ttl').textContent=t,hide=()=>{nv.hidden=sb.hidden=sh.hidden=true};
-async function load(f){if(cur.f==f)return cur;const r=await getF(f);if(!r)return null;cur={f,...parse(r.md),t:(await tx('m','readonly',s=>s.get(f))).title};return cur}
+async function load(f){if(cur.f==f)return cur;const r=await getF(f);if(!r)return null;const ms=await allM(),es=[];for(const m of ms.filter(m=>m.mulga&&m.k!=f&&parseInt(m.k)==parseInt(f))){const x=await getF(m.k);if(x)es.push(prep(x.md))}
+ cur={f,...parse(r.md),eski:es,t:(ms.find(m=>m.k==f)||{}).title||f};return cur}
+const eskiHtml=(c,k)=>{const es=c.eski.flatMap(md=>eski(md,k));return es.length?`<details class=fn open><summary><b>Yürürlükten kaldırılmış eski metinler (${es.length})</b></summary>${es.map(([b,t])=>`<p><b>${esc(b)}</b><br>${esc(t)}</p>`).join('')}</details>`:''}
+function favBtn(c){const n=parseInt(c.f),b=$('#fv');if(!n){b.remove();return}const on=()=>favs().includes(n);b.textContent=on()?'★ Sık kullanılanlardan çıkar':'☆ Sık kullanılanlara ekle';b.onclick=()=>{localStorage.fav=JSON.stringify(on()?favs().filter(x=>x!=n):[...favs(),n]);favBtn(c)}}
 async function route(){hide();scrollTo(0,0);const[p,q='']=location.hash.slice(1).split('?q='),s=p.split('/').filter(Boolean).map(decodeURIComponent),Q=decodeURIComponent(q);
  if(s[0]=='ayar')return ayar();if(s[0]=='l'&&s[1]){const c=await load(s[1]);if(!c)return home();return s[2]?art(c,s[2],Q):law(c,Q)}home()}
-async function home(){view='h';title('Mevzuat');const m=(await allM()).sort((a,b)=>(parseInt(a.k)||1e9)-(parseInt(b.k)||1e9));
+async function home(){view='h';title('Mevzuat');const m=(await allM()).filter(x=>!x.mulga).sort((a,b)=>(parseInt(a.k)||1e9)-(parseInt(b.k)||1e9));
  if(!m.length){v.innerHTML='<div class=it><b>Henüz kanun yok</b><small>Ayarlar’dan Açık Mevzuat deposunu gir ve “Güncelle”ye bas.</small></div><button class=p onclick="location.hash=\'#/ayar\'">Ayarlara git</button>';return}
  v.innerHTML='<input id=fq type=search placeholder="Kanun ara: tck, 6098, borçlar…"><div id=ls></div>';
- const draw=()=>{const t=norm($('#fq').value.trim()),no=AB[t],r=m.filter(x=>!t||norm(x.title+' '+x.k).includes(t)||(no&&parseInt(x.k)==no));
-  $('#ls').innerHTML=r.slice(0,150).map(x=>`<a class=it href="${L(x.k)}"><span class=no>${parseInt(x.k)||''}</span>${esc(x.title)}</a>`).join('')+(r.length>150?'<small>… daraltmak için yaz</small>':'')};
+ const ab=n=>((Object.entries(AB).find(e=>e[1]==n)||[''])[0]).toLocaleUpperCase('tr')||n;
+ const draw=()=>{const t=norm($('#fq').value.trim()),no=AB[t],r=m.filter(x=>!t||norm(x.title+' '+x.k).includes(t)||(no&&parseInt(x.k)==no)),
+  fv=t?[]:favs().map(n=>m.find(x=>parseInt(x.k)==n)).filter(Boolean);
+  $('#ls').innerHTML=(fv.length?'<div class=sec>Sık kullanılanlar</div><div class=fg>'+fv.map(x=>`<a class=fv href="${L(x.k)}"><b>${ab(parseInt(x.k))}</b>${esc(x.title)}</a>`).join('')+'</div><div class=sec>Tüm kanunlar</div>':'')+r.slice(0,150).map(x=>`<a class="it mi" href="${L(x.k)}"><span class=no>${parseInt(x.k)||''}</span><span>${esc(x.title)}</span></a>`).join('')+(r.length>150?'<small>… daraltmak için yaz</small>':'')};
  $('#fq').oninput=draw;draw()}
-function law(c,q){view='l';title(c.t);v.innerHTML=`<input id=gm placeholder="Maddeye git: 36, 38/a, ek1, g2 ↵"><input id=ks type=search placeholder="Bu kanunda ara ↵" value="${esc(q)}"><div id=rs></div>`;
- $('#gm').onkeydown=e=>{if(e.key=='Enter'){const k=anahtar($('#gm').value);k&&c.idx[k]!=null?location.hash=L(c.f,k):toast('Madde bulunamadı')}};
+function law(c,q){view='l';title(c.t);v.innerHTML=`<button id=fv style="margin:0 0 8px"></button><input id=gm placeholder="Maddeye git: 36, 38/a, ek1, g2 ↵"><input id=ks type=search placeholder="Bu kanunda ara ↵" value="${esc(q)}"><div id=rs></div>`;
+ favBtn(c);$('#gm').onkeydown=e=>{if(e.key=='Enter'){const k=anahtar($('#gm').value);k&&c.idx[k]!=null?location.hash=L(c.f,k):toast('Madde bulunamadı')}};
  $('#ks').onkeydown=e=>{if(e.key=='Enter')location.hash=L(c.f,'',$('#ks').value.trim())};
- let h='';if(q){const r=c.arts.map(a=>[a,aramaSonuc(a,q)]).filter(x=>x[1].length||norm(x[0].title).includes(norm(q)));h=`<div class=sec>${r.length} maddede bulundu</div>`+r.map(([a,s])=>`<a class=it href="${L(c.f,a.k,q)}"><span class=no>${etiket(a.k)}</span>${esc(a.title)}${s.slice(0,3).map(x=>`<small>${paint(x,q,[])}</small>`).join('')}</a>`).join('')}
- else c.arts.forEach(a=>{a.sec.forEach(s=>h+=`<div class=sec>${esc(s)}</div>`);h+=`<a class=it href="${L(c.f,a.k)}"><span class=no>${etiket(a.k)}</span>${esc(a.title)}</a>`});
+ let h='';if(q){const r=c.arts.map(a=>[a,aramaSonuc(a,q)]).filter(x=>x[1].length||norm(x[0].title).includes(norm(q)));h=`<div class=sec>${r.length} maddede bulundu</div>`+r.map(([a,s])=>`<a class="it mi" href="${L(c.f,a.k,q)}"><span class=no>${etiket(a.k)}</span><span>${esc(a.title)}${s.slice(0,3).map(x=>`<small>${paint(x,q,[])}</small>`).join('')}</span></a>`).join('')}
+ else c.arts.forEach(a=>{a.sec.forEach(s=>h+=`<div class=sec>${esc(s)}</div>`);h+=`<a class="it mi" href="${L(c.f,a.k)}"><span class=no>${etiket(a.k)}</span><span>${esc(a.title)}</span></a>`});
  $('#rs').innerHTML=h||'<small>Madde bulunamadı</small>'}
 function art(c,k,q){view='a';curK=k;const a=c.arts[c.idx[k]];if(!a)return law(c,q);title(c.t.split(' ').slice(0,4).join(' ')+' · '+etiket(k));
- const uh=hl[c.f+'|'+k]||[],ps=paras(a.lines),refs=[...new Set((a.lines.join('\n').match(/\[\^?(\d+)\]/g)||[]).map(x=>x.replace(/\D/g,'')))].filter(n=>c.fn[n]);
- v.innerHTML=`<article><div class=sec>${esc(a.sec.join(' · '))}</div><h2>${etiket(k)}${a.title?' – '+esc(a.title):''}</h2>${ps.map(p=>ph(p,q,uh)).join('')}</article>`+(refs.length?'<div class=fn>'+refs.map(n=>`<p><b>[${n}]</b> ${esc(c.fn[n])}</p>`).join('')+'</div>':'');
+ const uh=hl[c.f+'|'+k]||[],ps=paras(a.lines),refs=[...new Set(((a.lines.join('\n')+a.hr).match(/\[\^?(\d+)\]/g)||[]).map(x=>x.replace(/\D/g,'')))].filter(n=>c.fn[n]);
+ v.innerHTML=`<article><div class=sec>${esc(a.sec.join(' · '))}</div><h2>${etiket(k)}${a.title?' – '+esc(a.title):''}</h2>${ps.map(p=>ph(p,q,uh)).join('')}</article>`+(refs.length?'<div class=fn>'+refs.map(n=>`<p><b>[${n}]</b> ${esc(c.fn[n])}</p>`).join('')+'</div>':'')+eskiHtml(c,k);
  const ks=q?c.arts.filter(x=>norm(paras(x.lines).join(' ')+x.title).includes(norm(q))).map(x=>x.k):c.arts.map(x=>x.k),i=ks.indexOf(k),go=d=>{const n=ks[i+d];n?location.hash=L(c.f,n,q):toast('Son madde')};
  nv.hidden=false;nv.innerHTML='<button id=pv>‹</button><button id=ix>☰</button><button id=cp>⧉</button><button id=nx>›</button>';
  $('#pv').onclick=()=>go(-1);$('#nx').onclick=()=>go(1);$('#ix').onclick=()=>location.hash=L(c.f,'',q);
@@ -134,8 +161,9 @@ function ayar(){view='s';title('Ayarlar');const c=cfg();
  $('#up').onclick=async()=>{localStorage.repo=$('#rp').value.trim();localStorage.br=$('#br').value.trim()||'main';const lg=t=>$('#lg').textContent=t,{repo,br}=cfg();
   if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return lg('Depo adı “kullanici/depo” biçiminde olmalı');lg('Liste alınıyor…');
   try{const r=await fetch(`https://api.github.com/repos/${repo}/git/trees/${br}?recursive=1`);if(!r.ok)return lg('GitHub hatası '+r.status+(r.status==403?' (istek sınırı; bir saat sonra dene)':''));
-   const j=await r.json(),have={};(await allM()).forEach(m=>have[m.k]=m.sha);
-   const todo=j.tree.filter(x=>x.type=='blob'&&/^kanunlar\/[^/]+\/metin\.md$/.test(x.path)).map(x=>({k:x.path.split('/')[1],sha:x.sha,p:x.path})).filter(x=>!/yururlukten-kaldirilmis|mulga/.test(x.k)&&have[x.k]!=x.sha);
+   const j=await r.json(),have={};lg('Başlıklar alınıyor…');try{const ri=await fetch(`https://raw.githubusercontent.com/${repo}/${br}/indeks.json`);if(ri.ok)col(await ri.json())}catch{}
+   for(const m of await allM()){have[m.k]=m.sha;const t=TT[m.k];if(t&&t!=m.title)await tx('m','readwrite',s=>s.put({...m,title:t}))}
+   const todo=j.tree.filter(x=>x.type=='blob'&&/^kanunlar\/[^/]+\/metin\.md$/.test(x.path)).map(x=>({k:x.path.split('/')[1],sha:x.sha,p:x.path})).filter((x,_,a)=>have[x.k]!=x.sha&&(!MU.test(x.k)||a.some(y=>!MU.test(y.k)&&parseInt(y.k)==parseInt(x.k))));
    let d=0,e=0;const q=[...todo];await Promise.all(Array.from({length:6},async()=>{for(let x;x=q.shift();){try{const t=await fetch(`https://raw.githubusercontent.com/${repo}/${br}/${x.p.split('/').map(encodeURIComponent).join('/')}`);if(!t.ok)throw 0;await save(x.k,await t.text(),x.sha)}catch{e++}lg(`İndiriliyor ${++d}/${todo.length}`)}}));
    cur={};lg(todo.length?`Bitti: ${d-e} güncellendi${e?', '+e+' hata (tekrar bas)':''}${j.truncated?' · liste kesilmiş olabilir':''}`:'Her şey güncel ✓')}catch(x){lg('Bağlantı hatası')}}}
 $('#bk').onclick=()=>history.length>1&&view!='h'?history.back():(location.hash='');$('#st').onclick=()=>location.hash='#/ayar';
